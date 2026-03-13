@@ -17,18 +17,19 @@ app.get('/', function (req, res) {
 const upload = multer({ storage: multer.memoryStorage() });
 
 // API endpoint
-app.post('/api/fileanalyse', upload.single('upfile'), function (req, res) {
+app.post('/api/fileanalyse', multer().single('upfile'), function(req, res) {
 
   if (!req.file) {
-    return res.json({ error: 'No file uploaded' });
+    return res.json({ error: "No file uploaded" });
   }
 
-  res.json({
+  const fileData = {
     name: req.file.originalname,
     type: req.file.mimetype,
     size: req.file.size
-  });
+  };
 
+  res.json(fileData);
 });
 
 const port = process.env.PORT || 3000;
