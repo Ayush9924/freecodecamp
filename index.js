@@ -13,17 +13,8 @@ app.get('/', function (req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-// configure multer storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, './uploads');
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + '-' + file.originalname);
-  }
-});
-
-const upload = multer({ storage: storage });
+// configure multer storage (use memory storage for compatibility with Render)
+const upload = multer({ storage: multer.memoryStorage() });
 
 // API endpoint
 app.post('/api/fileanalyse', upload.single('upfile'), function (req, res) {
