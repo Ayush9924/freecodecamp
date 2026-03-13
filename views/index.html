@@ -25,15 +25,32 @@
       <div class="view">
         <h4 id="output"></h4>
         <form
+          id="fileForm"
           enctype="multipart/form-data"
           method="POST"
           action="/api/fileanalyse"
         >
-          <input id="inputfield" type="file" name="upfile" />
+          <input id="inputfield" type="file" name="upfile" required />
           <input id="button" type="submit" value="Upload" />
         </form>
       </div>
     </div>
+    <script>
+      document.getElementById('fileForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        try {
+          const response = await fetch('/api/fileanalyse', {
+            method: 'POST',
+            body: formData
+          });
+          const data = await response.json();
+          document.getElementById('output').textContent = JSON.stringify(data);
+        } catch (error) {
+          document.getElementById('output').textContent = 'Error: ' + error.message;
+        }
+      });
+    </script>
     <div class="footer">
       <p>
         by

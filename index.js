@@ -7,7 +7,7 @@ const cors = require("cors");
 const multer = require("multer");
 const app = express();
 const upload = multer({
-  dest: "./uploads/",
+  storage: multer.memoryStorage(),
 });
 
 app.use(cors());
