@@ -1,73 +1,73 @@
+'use strict';
+
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
+const dns = require('dns');
+const { URL } = require('url');
+
 const app = express();
-const dns = require('dns')
-const urlparser = require('url')
-
-// Basic Configuration
-const port = process.env.PORT || 7799;
-
-// In-memory storage (replace MongoDB if connection fails)
-let urlDatabase = {};
-let shortUrlCounter = 1;
+const port = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({extended: true}))
-app.use('/public', express.static(`${process.cwd()}/public`));
+app.use(express.urlencoded({ extended: false }));
+app.use('/public', express.static(process.cwd() + '/public'));
 
-app.get('/', function(req, res) {
+app.get('/', function (req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-app.post('/api/shorturl', function(req, res) {
-  console.log(req.body)
-  const url = req.body.url
-  const dnslookup = dns.lookup(urlparser.parse(url).hostname, async (err, address) => {
-    if (err || !address){
-      return res.json({error: "Invalid url"})
-    }else {
-      try {
-        // Check if URL already exists
-        let shortUrl = null;
-        for (let key in urlDatabase) {
-          if (urlDatabase[key] === url) {
-            shortUrl = parseInt(key);
-            break;
-          }
-        }
-        
-        // If not found, create new short URL
-        if (shortUrl === null) {
-          shortUrl = shortUrlCounter;
-          urlDatabase[shortUrl] = url;
-          shortUrlCounter++;
-        }
-        
-        res.json({original_url: url, short_url: shortUrl})
-      } catch (e) {
-        console.error(e)
-        res.json({error: "Server error"})
-      }
-    }
-  })
-});
+// in-memory storage
+let urlDatabase = {};
+let counter = 1;
 
-app.get('/api/shorturl/:short_url', async (req, res) => {
+/*
+POST /api/shorturl
+*/
+app.post('/api/shorturl', (req, res) => {
+  const originalUrl = req.body.url;
+
+  let hostname;
+
   try {
-    const shorturl = parseInt(req.params.short_url);
-    if (urlDatabase.hasOwnProperty(shorturl)) {
-      res.redirect(urlDatabase[shorturl])
-    } else {
-      res.json({error: "No short URL found"})
-    }
-  } catch (e) {
-    console.error(e)
-    res.json({error: "Server error"})
+    hostname = new URL(originalUrl).hostname;
+  } catch (err) {
+    return res.json({ error: 'invalid url' });
   }
+
+  dns.lookup(hostname, (err) => {
+    if (err) {
+      return res.json({ error: 'invalid url' });
+    }
+
+    const short = counter++;
+
+    urlDatabase[short] = originalUrl;
+
+    res.json({
+      original_url: originalUrl,
+      short_url: short
+    });
+  });
 });
 
-app.listen(port, function() {
-  console.log(`Listening on port ${port}`);
+/*
+GET /api/shorturl/:short_url
+*/
+app.get('/api/shorturl/:short_url', (req, res) => {
+  const short = req.params.short_url;
+
+  const original = urlDatabase[short];
+
+  if (!original) {
+    return res.json({ error: 'No short URL found' });
+  }
+
+  // important for test #3
+  return res.redirect(original);
+});
+
+app.listen(port, () => {
+  console.log('Server running on port ' + port);
 });
