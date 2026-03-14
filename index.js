@@ -85,13 +85,15 @@ app.post("/api/shorturl", (req, res) => {
 app.get("/api/shorturl/:short_url", (req, res) => {
   const shortUrl = parseInt(req.params.short_url);
   
-  if (shortUrl && urlDatabase[shortUrl]) {
+  // Validate shortUrl is a number and exists in database
+  if (!isNaN(shortUrl) && urlDatabase.hasOwnProperty(shortUrl)) {
     const originalUrl = urlDatabase[shortUrl];
     console.log("Redirecting:", shortUrl, "->", originalUrl);
-    return res.redirect(301, originalUrl);
-  } else {
-    res.json({ error: "Short URL not found" });
+    return res.status(301).redirect(originalUrl);
   }
+  
+  // If not found, return error
+  res.status(404).json({ error: "Short URL not found" });
 });
 
 const port = process.env.PORT || 3000;
