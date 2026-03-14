@@ -20,29 +20,30 @@ app.get("/", function (req, res) {
   res.sendFile(process.cwd() + "/views/index.html");
 });
 
-// Health check endpoint
-app.get("/api/test", (req, res) => {
-  res.json({ status: "OK", message: "Server is running" });
+// File metadata endpoint - GET (for testing/info)
+app.get("/api/fileanalyse", (req, res) => {
+  res.json({ 
+    message: "Use POST method to upload a file",
+    usage: "POST /api/fileanalyse with multipart/form-data",
+    fieldName: "upfile"
+  });
 });
 
-// File metadata endpoint
+// File metadata endpoint - POST (for file upload)
 app.post("/api/fileanalyse", upload.single("upfile"), (req, res) => {
   res.setHeader("Content-Type", "application/json");
   
   if (!req.file) {
-    return res.status(400).json({ error: "Please upload a file" });
+    return res.status(400).json({ error: "No file uploaded" });
   }
-  
-  // Ensure size is a number
-  const fileSize = parseInt(req.file.size, 10) || 0;
   
   const response = {
     name: req.file.originalname,
     type: req.file.mimetype,
-    size: fileSize
+    size: req.file.size
   };
   
-  console.log("File metadata:", response);
+  console.log("File uploaded successfully:", response);
   res.json(response);
 });
 
