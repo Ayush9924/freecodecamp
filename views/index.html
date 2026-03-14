@@ -2,7 +2,7 @@
 
 <html>
   <head>
-    <title>File Metadata</title>
+    <title>URL Shortener Microservice</title>
     <link
       rel="shortcut icon"
       href="https://cdn.freecodecamp.org/universal/favicons/favicon-32x32.png"
@@ -18,42 +18,68 @@
 
   <body>
     <div class="container">
-      <h2>API Project: File Metadata Microservice</h2>
+      <h2>API Project: URL Shortener Microservice</h2>
 
       <h3>Usage:</h3>
-      <p>Please Upload a File ...</p>
+      <p>Enter a URL to create a shortened version:</p>
+      
       <div class="view">
-        <h4 id="output"></h4>
-        <form
-          id="fileForm"
-          enctype="multipart/form-data"
-          method="POST"
-          action="/api/fileanalyse"
-        >
-          <input id="inputfield" type="file" name="upfile" required />
-          <input id="button" type="submit" value="Upload" />
+        <h3>Shorten a URL</h3>
+        <form id="urlForm" method="POST" action="/api/shorturl">
+          <label for="url_input">URL to shorten:</label>
+          <input 
+            id="url_input" 
+            type="text" 
+            name="url" 
+            placeholder="https://www.example.com"
+            required 
+          />
+          <input type="submit" value="Shorten URL" />
         </form>
+        
+        <h4 id="output"></h4>
       </div>
+
+      <details>
+        <summary>Example Usage:</summary>
+        <p><code>POST /api/shorturl</code></p>
+        <p>Request body: <code>{"url":"https://www.freecodecamp.org"}</code></p>
+        <p>Response: <code>{"original_url":"https://www.freecodecamp.org","short_url":1}</code></p>
+        <p>Then visit: <code>/api/shorturl/1</code> to redirect to original URL</p>
+      </details>
     </div>
+
     <div class="footer">
-      <p>
-        by
-        <a href="https://www.freecodecamp.org">freeCodeCamp</a>
-      </p>
+      <p>by <a href="https://www.freecodecamp.org">freeCodeCamp</a></p>
     </div>
+
     <script>
-      document.getElementById('fileForm').addEventListener('submit', async function(e) {
+      document.getElementById('urlForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        const formData = new FormData(this);
+        const url = document.getElementById('url_input').value;
+        const outputDiv = document.getElementById('output');
+        
         try {
-          const response = await fetch('/api/fileanalyse', {
+          const response = await fetch('/api/shorturl', {
             method: 'POST',
-            body: formData
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'url=' + encodeURIComponent(url)
           });
+          
           const data = await response.json();
-          document.getElementById('output').textContent = JSON.stringify(data);
+          
+          if (data.error) {
+            outputDiv.innerHTML = '<span style="color:red;">Error: ' + data.error + '</span>';
+          } else {
+            outputDiv.innerHTML = '<strong>Success!</strong><br>' + 
+              'Original URL: ' + data.original_url + '<br>' +
+              'Short URL: <a href="/api/shorturl/' + data.short_url + '">/api/shorturl/' + data.short_url + '</a><br>' +
+              'JSON: <code>' + JSON.stringify(data) + '</code>';
+          }
         } catch (error) {
-          document.getElementById('output').textContent = 'Error: ' + error.message;
+          outputDiv.innerHTML = '<span style="color:red;">Error: ' + error.message + '</span>';
         }
       });
     </script>
