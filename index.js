@@ -12,7 +12,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use("/public", express.static(process.cwd() + "/public"));
 
 // In-memory storage
-let urls = [];
+let finalData = [];
 let counter = 1;
 
 // Homepage
@@ -41,7 +41,7 @@ app.post('/api/shorturl', (req, res) => {
       short_url: counter++
     };
 
-    urls.push(entry);
+    finalData.push(entry);
 
     res.json(entry);
   });
@@ -49,15 +49,13 @@ app.post('/api/shorturl', (req, res) => {
 
 // GET /api/shorturl/:short_url - Redirect to original URL
 app.get('/api/shorturl/:short_url', (req, res) => {
-  const short = req.params.short_url;
-
-  const found = urls.find(u => u.short_url == short);
-
-  if (!found) {
-    return res.json({ error: "No short URL found" });
+  const short = parseInt(req.params.short_url);
+  const url = finalData.find(data => data.short_url === short);
+  if (url) {
+    res.redirect(url.original_url);
+  } else {
+    res.json({ error: 'invalid URL' });
   }
-
-  res.redirect(found.original_url);
 });
 
 const port = process.env.PORT || 3000;
