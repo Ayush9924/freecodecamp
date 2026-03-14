@@ -17,22 +17,14 @@ app.get("/", function (req, res) {
 
 app.post("/api/fileanalyse", upload.single("upfile"), (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ error: "No file uploaded" });
+    return res.json({ error: "No file" });
   }
   
-  try {
-    const file = req.file;
-    const respond = {
-      name: file.originalname || "unknown",
-      type: file.mimetype || "application/octet-stream",
-      size: file.size || 0,
-    };
-    console.log("File uploaded:", respond);
-    res.json(respond);
-  } catch (error) {
-    console.error("Error processing file:", error);
-    res.status(500).json({ error: "Error processing file" });
-  }
+  res.json({
+    name: req.file.originalname,
+    type: req.file.mimetype,
+    size: req.file.size
+  });
 });
 
 const port = process.env.PORT || 3000;
