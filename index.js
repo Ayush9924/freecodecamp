@@ -4,7 +4,7 @@ const cors = require('cors');
 const app = express();
 const {MongoClient} = require('mongodb');
 
-const client = new MongoClient(process.env.DB_URL)
+const client = new MongoClient(process.env.MONGO_URI)
 const db = client.db("urlshortener")
 const urls = db.collection("urls")
 const dns = require('dns')
