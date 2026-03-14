@@ -1,68 +1,73 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const dns = require('dns');
-const { URL } = require('url');
 const app = express();
+const dns = require("dns")
 
-const port = process.env.PORT || 5000;
-const urlDatabase = [];
-let urlCounter = 1;
+// Basic Configuration
+const port = process.env.PORT || 3000;
+
+var dataBase = []
 
 app.use(cors());
-app.use(express.urlencoded({ extended: true }));
+
 app.use('/public', express.static(`${process.cwd()}/public`));
+
+app.use(express.urlencoded({extended:false}))
+
+app.use(express.json())
+
+function middleware (req, res, next){
+  const url = req.body.url.slice(8)
+  
+  dns.lookup(url, (err, address, family) =>{
+
+
+    if(err) return res.json({error: 'invalid url'})
+
+    console.log(req.method)
+    return next();
+
+  })  
+}
 
 app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-app.post('/api/shorturl', (req, res) => {
-  const originalUrl = req.body.url;
-  const urlRegex = /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
+// Your first API endpoint
+/* app.get('/api/hello', function(req, res) {
+  res.json({ greeting: 'hello API' });
+}); */
 
-  if (!urlRegex.test(originalUrl)) {
-    return res.json({ error: 'invalid url' });
-  }
 
-  try {
-    const parsedUrl = new URL(originalUrl);
-    dns.lookup(parsedUrl.hostname, (err) => {
-      if (err) {
-        return res.json({ error: 'invalid url' });
-      }
+app.post("/api/shorturl",middleware, (req, res ) => {
 
-      let existingEntry = urlDatabase.find(entry => entry.original_url === originalUrl);
+    const url = req.body.url
 
-      if (existingEntry) {
-        return res.json({
-          original_url: existingEntry.original_url,
-          short_url: existingEntry.short_url
-        });
-      }
+    const randomNumber = Math.round((Math.random() * 100))
 
-      const newEntry = {
-        original_url: originalUrl,
-        short_url: urlCounter++
-      };
+    dataBase.push({
+      original_url:url,
+      short_url:randomNumber
+    })
 
-      urlDatabase.push(newEntry);
-      res.json(newEntry);
-    });
-  } catch (err) {
-    res.json({ error: 'invalid url' });
-  }
-});
+    return res.json(dataBase[dataBase.length - 1])
 
-app.get('/api/shorturl/:short_url', (req, res) => {
-  const shortUrlParam = req.params.short_url;
-  const urlEntry = urlDatabase.find(entry => entry.short_url === parseInt(shortUrlParam));
+})
+app.get("/api/shorturl/:shorturl", (req, res ) => {
+    
 
-  if (urlEntry) {
-    return res.redirect(urlEntry.original_url);
-  } else {
-    return res.json({ error: 'No short URL found for the given input' });
-  }
+    let short = req.params.shorturl
+
+    let result = dataBase.find( el => new String(el.short_url) == short)
+  
+    if(result != undefined){
+      return res.redirect(result.original_url)
+    }else{
+      return res.json({error: 'invalid url'})
+      
+    }
 });
 
 app.listen(port, function() {
