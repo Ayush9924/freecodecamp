@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
-const dns = require("dns")
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
@@ -17,18 +16,19 @@ app.use(express.urlencoded({extended:false}))
 
 app.use(express.json())
 
+function validarURL(url){  
+  const regex = /((https?:\/\/)|(ftp:\/\/)|(^))([0-9a-zA-Z][-\w]*[0-9a-zA-Z]\.)+([a-zA-Z]{2,9})(:\d{1,4})?([-\w\/#~:.?+=&%@~]*)/;
+  return regex.test(url);
+}
+
 function middleware (req, res, next){
-  const url = req.body.url.slice(8)
+  const url = req.body.url;
   
-  dns.lookup(url, (err, address, family) =>{
+  if(!validarURL(url)){
+    return res.json({error: 'invalid url'})
+  }
 
-
-    if(err) return res.json({error: 'invalid url'})
-
-    console.log(req.method)
-    return next();
-
-  })  
+  return next();
 }
 
 app.get('/', function(req, res) {
