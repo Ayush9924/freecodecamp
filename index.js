@@ -1,7 +1,4 @@
-'use strict';
-
 require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
 const dns = require('dns');
@@ -12,62 +9,102 @@ const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
 app.use('/public', express.static(process.cwd() + '/public'));
 
-app.get('/', function (req, res) {
+app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-// in-memory storage
+/* --------------------------
+   In-memory database
+--------------------------- */
+
 let urlDatabase = {};
 let counter = 1;
 
-/*
-POST /api/shorturl
-*/
-app.post('/api/shorturl', (req, res) => {
-  const originalUrl = req.body.url;
+/* --------------------------
+   POST /api/shorturl
+--------------------------- */
 
-  let hostname;
+app.post('/api/shorturl', (req, res) => {
+
+  const originalUrl = req.body.url;
+  let parsed;
+
+  /* Step 1 — URL syntax validation */
 
   try {
-    hostname = new URL(originalUrl).hostname;
+    parsed = new URL(originalUrl);
   } catch (err) {
     return res.json({ error: 'invalid url' });
   }
 
-  dns.lookup(hostname, (err) => {
+  /* Step 2 — protocol validation */
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return res.json({ error: 'invalid url' });
+  }
+
+  /* Step 3 — DNS lookup */
+
+  dns.lookup(parsed.hostname, (err) => {
+
     if (err) {
       return res.json({ error: 'invalid url' });
     }
 
-    const short = counter++;
+    /* Step 4 — check if URL already exists */
 
-    urlDatabase[short] = originalUrl;
+    for (let key in urlDatabase) {
+      if (urlDatabase[key] === originalUrl) {
+        return res.json({
+          original_url: originalUrl,
+          short_url: parseInt(key)
+        });
+      }
+    }
+
+    /* Step 5 — create new short url */
+
+    const shortUrl = counter;
+
+    urlDatabase[shortUrl] = originalUrl;
+
+    counter++;
 
     res.json({
       original_url: originalUrl,
-      short_url: short
+      short_url: shortUrl
     });
+
   });
+
 });
 
-/*
-GET /api/shorturl/:short_url
-*/
+/* --------------------------
+   GET /api/shorturl/:id
+--------------------------- */
+
 app.get('/api/shorturl/:short_url', (req, res) => {
-  const short = req.params.short_url;
 
-  const original = urlDatabase[short];
+  const shortUrl = parseInt(req.params.short_url);
 
-  if (!original) {
-    return res.json({ error: 'No short URL found' });
+  if (urlDatabase[shortUrl]) {
+
+    // Important: must be return
+    return res.redirect(urlDatabase[shortUrl]);
+
   }
 
-  // important for test #3
-  return res.redirect(original);
+  res.json({ error: 'No short URL found' });
+
 });
 
+/* --------------------------
+   Start server
+--------------------------- */
+
 app.listen(port, () => {
-  console.log('Server running on port ' + port);
+  console.log('Server running on port', port);
 });
