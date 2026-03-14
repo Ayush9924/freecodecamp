@@ -2,109 +2,69 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const dns = require('dns');
-const { URL } = require('url');
-
 const app = express();
-const port = process.env.PORT || 3000;
+
+const port = process.env.PORT || 7799;
 
 app.use(cors());
-app.use(express.urlencoded({ extended: false }));
-app.use(express.json());
-app.use('/public', express.static(process.cwd() + '/public'));
+app.use(express.urlencoded({ extended: true })); 
+app.use('/public', express.static(`${process.cwd()}/public`));
 
 app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-/* --------------------------
-   In-memory database
---------------------------- */
-
-let urlDatabase = {};
+// Use a dictionary instead of an array. 
+// Starting at 1 prevents the "0 is falsy" bug in the FCC test runner.
+const urlDatabase = {};
 let counter = 1;
 
-/* --------------------------
-   POST /api/shorturl
---------------------------- */
-
-app.post('/api/shorturl', (req, res) => {
-
+app.post('/api/shorturl', function(req, res) {
   const originalUrl = req.body.url;
-  let parsed;
-
-  /* Step 1 — URL syntax validation */
 
   try {
-    parsed = new URL(originalUrl);
-  } catch (err) {
-    return res.json({ error: 'invalid url' });
-  }
-
-  /* Step 2 — protocol validation */
-
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    return res.json({ error: 'invalid url' });
-  }
-
-  /* Step 3 — DNS lookup */
-
-  dns.lookup(parsed.hostname, (err) => {
-
-    if (err) {
+    const parsedUrl = new URL(originalUrl);
+    
+    // Strict Protocol Verification
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
       return res.json({ error: 'invalid url' });
     }
 
-    /* Step 4 — check if URL already exists */
-
-    for (let key in urlDatabase) {
-      if (urlDatabase[key] === originalUrl) {
-        return res.json({
-          original_url: originalUrl,
-          short_url: parseInt(key)
-        });
+    // DNS Lookup
+    dns.lookup(parsedUrl.hostname, (err) => {
+      if (err) {
+        return res.json({ error: 'invalid url' });
       }
-    }
 
-    /* Step 5 — create new short url */
+      // Save to dictionary and increment counter
+      const shortUrl = counter;
+      urlDatabase[shortUrl] = originalUrl;
+      counter++;
 
-    const shortUrl = counter;
-
-    urlDatabase[shortUrl] = originalUrl;
-
-    counter++;
-
-    res.json({
-      original_url: originalUrl,
-      short_url: shortUrl
+      return res.json({
+        original_url: originalUrl,
+        short_url: shortUrl
+      });
     });
-
-  });
-
-});
-
-/* --------------------------
-   GET /api/shorturl/:id
---------------------------- */
-
-app.get('/api/shorturl/:short_url', (req, res) => {
-
-  const shortUrl = parseInt(req.params.short_url);
-
-  if (urlDatabase[shortUrl]) {
-
-    // Important: must be return
-    return res.redirect(urlDatabase[shortUrl]);
-
+    
+  } catch (err) {
+    return res.json({ error: 'invalid url' });
   }
-
-  res.json({ error: 'No short URL found' });
-
 });
 
-/* --------------------------
-   Start server
---------------------------- */
+app.get('/api/shorturl/:short_url', function(req, res) {
+  const shortUrlParam = req.params.short_url;
+  
+  // Look up the original URL in our dictionary
+  const originalUrl = urlDatabase[shortUrlParam];
 
-app.listen(port, () => {
-  console.log('Server running on port', port);
+  if (originalUrl) {
+    res.redirect(originalUrl);
+  } else {
+    res.json({ error: 'No short URL found' });
+  }
+});
+
+app.listen(port, function() {
+  console.log(`Listening on port ${port}`);
 });
