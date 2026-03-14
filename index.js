@@ -2,16 +2,15 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
-const {MongoClient} = require('mongodb');
-
-const client = new MongoClient(process.env.MONGO_URI)
-const db = client.db("urlshortener")
-const urls = db.collection("urls")
 const dns = require('dns')
 const urlparser = require('url')
 
 // Basic Configuration
 const port = process.env.PORT || 7799;
+
+// In-memory storage (replace MongoDB if connection fails)
+let urlDatabase = {};
+let shortUrlCounter = 1;
 
 app.use(cors());
 app.use(express.json());
@@ -22,31 +21,51 @@ app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-// Your first API endpoint
 app.post('/api/shorturl', function(req, res) {
   console.log(req.body)
   const url = req.body.url
   const dnslookup = dns.lookup(urlparser.parse(url).hostname, async (err, address) => {
-    if (!address){
-      res.json({error: "Invalid url"})
+    if (err || !address){
+      return res.json({error: "Invalid url"})
     }else {
-      const urlCount = await urls.countDocuments({})
-      const urlDoc = ({
-        url,
-        short_url: urlCount
-      })
-
-      const result = await urls.insertOne(urlDoc)
-      console.log(result)
-      res.json({original_url: url, short_url: urlCount})
+      try {
+        // Check if URL already exists
+        let shortUrl = null;
+        for (let key in urlDatabase) {
+          if (urlDatabase[key] === url) {
+            shortUrl = parseInt(key);
+            break;
+          }
+        }
+        
+        // If not found, create new short URL
+        if (shortUrl === null) {
+          shortUrl = shortUrlCounter;
+          urlDatabase[shortUrl] = url;
+          shortUrlCounter++;
+        }
+        
+        res.json({original_url: url, short_url: shortUrl})
+      } catch (e) {
+        console.error(e)
+        res.json({error: "Server error"})
+      }
     }
   })
 });
 
 app.get('/api/shorturl/:short_url', async (req, res) => {
-  const shorturl = req.params.short_url
-  const urlDoc = await urls.findOne({ short_url: +shorturl })
-  res.redirect(urlDoc.url)
+  try {
+    const shorturl = parseInt(req.params.short_url);
+    if (urlDatabase.hasOwnProperty(shorturl)) {
+      res.redirect(urlDatabase[shorturl])
+    } else {
+      res.json({error: "No short URL found"})
+    }
+  } catch (e) {
+    console.error(e)
+    res.json({error: "Server error"})
+  }
 });
 
 app.listen(port, function() {
