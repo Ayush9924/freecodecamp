@@ -2,72 +2,56 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
+const {MongoClient} = require('mongodb');
+
+const client = new MongoClient(process.env.DB_URL)
+const db = client.db("urlshortener")
+const urls = db.collection("urls")
+const dns = require('dns')
+const urlparser = require('url')
 
 // Basic Configuration
-const port = process.env.PORT || 3000;
-
-var dataBase = []
+const port = process.env.PORT || 7799;
 
 app.use(cors());
-
+app.use(express.json());
+app.use(express.urlencoded({extended: true}))
 app.use('/public', express.static(`${process.cwd()}/public`));
-
-app.use(express.urlencoded({extended:false}))
-
-app.use(express.json())
-
-function validarURL(url){  
-  const regex = /((https?:\/\/)|(ftp:\/\/)|(^))([0-9a-zA-Z][-\w]*[0-9a-zA-Z]\.)+([a-zA-Z]{2,9})(:\d{1,4})?([-\w\/#~:.?+=&%@~]*)/;
-  return regex.test(url);
-}
-
-function middleware (req, res, next){
-  const url = req.body.url;
-  
-  if(!validarURL(url)){
-    return res.json({error: 'invalid url'})
-  }
-
-  return next();
-}
 
 app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
 // Your first API endpoint
-/* app.get('/api/hello', function(req, res) {
-  res.json({ greeting: 'hello API' });
-}); */
+app.post('/api/shorturl', function(req, res) {
+  console.log(req.body)
+  const url = req.body.url
+  const dnslookup = dns.lookup(urlparser.parse(url).hostname, async (err, address) => {
+    if (!address){
+      res.json({error: "Invalid url"})
+    }else {
+      const urlCount = await urls.countDocuments({})
+      const urlDoc = ({
+        url,
+        short_url: urlCount
+      })
 
-
-app.post("/api/shorturl",middleware, (req, res ) => {
-
-    const url = req.body.url
-
-    const randomNumber = Math.round((Math.random() * 100))
-
-    dataBase.push({
-      original_url:url,
-      short_url:randomNumber
-    })
-
-    return res.json(dataBase[dataBase.length - 1])
-
-})
-app.get("/api/shorturl/:shorturl", (req, res ) => {
-    
-
-    let short = req.params.shorturl
-
-    let result = dataBase.find( el => new String(el.short_url) == short)
-  
-    if(result != undefined){
-      return res.redirect(result.original_url)
-    }else{
-      return res.json({error: 'invalid url'})
-      
+      const result = await urls.insertOne(urlDoc)
+      console.log(result)
+      res.json({original_url: url, short_url: urlCount})
     }
+  })
+});
+
+app.get('/api/shorturl/:short_url', async (req, res) => {
+  const shortId = req.params.short_url;
+
+  const urlDoc = await urls.findOne({ short_url: +shortId })
+    .then(doc => {
+      if (doc === null) return res.send('Uh oh. We could not find a link at that URL');
+      res.redirect(doc.url)
+    })
+    .catch(console.error);
 });
 
 app.listen(port, function() {
