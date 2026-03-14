@@ -26,7 +26,7 @@ app.get("/", function (req, res) {
 app.post("/api/shorturl", (req, res) => {
   const originalUrl = req.body.url;
   
-  // Validate URL format
+  // Validate URL exists
   if (!originalUrl) {
     return res.json({ error: "invalid url" });
   }
@@ -36,58 +36,59 @@ app.post("/api/shorturl", (req, res) => {
     const parsedUrl = new URL(originalUrl);
     
     // Validate protocol
-    if (!parsedUrl.protocol || !["http:", "https:"].includes(parsedUrl.protocol)) {
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
       return res.json({ error: "invalid url" });
     }
     
-    // Validate hostname format (should contain www or at least have a proper domain)
+    // Validate hostname
     const hostname = parsedUrl.hostname;
-    if (!hostname || hostname === "localhost") {
+    if (!hostname) {
       return res.json({ error: "invalid url" });
     }
     
-    // Use DNS lookup to verify the URL is valid
+    // Use DNS lookup to verify the URL domain exists
     dns.lookup(hostname, (err, address) => {
       if (err) {
-        console.log("DNS lookup failed:", err);
+        console.log("DNS lookup failed for:", hostname, err.message);
         return res.json({ error: "invalid url" });
       }
       
       // Check if URL already exists in database
-      let shortUrl;
-      const existingEntry = Object.entries(urlDatabase).find(
-        ([key, val]) => val === originalUrl
-      );
+      let shortUrl = null;
+      for (let key in urlDatabase) {
+        if (urlDatabase[key] === originalUrl) {
+          shortUrl = parseInt(key);
+          break;
+        }
+      }
       
-      if (existingEntry) {
-        shortUrl = existingEntry[0];
-      } else {
-        // Create new short URL
+      // If not found, create new short URL
+      if (shortUrl === null) {
         shortUrl = shortUrlCounter;
         urlDatabase[shortUrl] = originalUrl;
         shortUrlCounter++;
       }
       
-      console.log("URL shortened:", { original_url: originalUrl, short_url: parseInt(shortUrl) });
+      console.log("URL shortened:", { original_url: originalUrl, short_url: shortUrl });
       res.json({
         original_url: originalUrl,
-        short_url: parseInt(shortUrl)
+        short_url: shortUrl
       });
     });
   } catch (error) {
-    console.log("URL parsing error:", error);
+    console.log("URL parsing error:", error.message);
     return res.json({ error: "invalid url" });
   }
 });
 
 // GET /api/shorturl/:short_url - Redirect to original URL
 app.get("/api/shorturl/:short_url", (req, res) => {
-  const shortUrl = req.params.short_url;
+  const shortUrl = parseInt(req.params.short_url);
   
-  if (urlDatabase[shortUrl]) {
+  if (shortUrl && urlDatabase[shortUrl]) {
     const originalUrl = urlDatabase[shortUrl];
     console.log("Redirecting:", shortUrl, "->", originalUrl);
-    res.redirect(originalUrl);
+    return res.redirect(301, originalUrl);
   } else {
     res.json({ error: "Short URL not found" });
   }
