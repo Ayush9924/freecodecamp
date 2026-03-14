@@ -44,14 +44,9 @@ app.post('/api/shorturl', function(req, res) {
 });
 
 app.get('/api/shorturl/:short_url', async (req, res) => {
-  const shortId = req.params.short_url;
-
-  const urlDoc = await urls.findOne({ short_url: +shortId })
-    .then(doc => {
-      if (doc === null) return res.send('Uh oh. We could not find a link at that URL');
-      res.redirect(doc.url)
-    })
-    .catch(console.error);
+  const shorturl = req.params.short_url
+  const urlDoc = await urls.findOne({ short_url: +shorturl })
+  res.redirect(urlDoc.url)
 });
 
 app.listen(port, function() {
